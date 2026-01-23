@@ -2,7 +2,7 @@
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8" />
-    <title>India Pulse Mentions</title>
+    <title>Trending stocks of INDIA</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
@@ -21,9 +21,9 @@
     <main class="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl">
 
         <div class="flex items-center justify-between mb-6 border-b border-slate-800 pb-4">
-            <h2 class="text-xl font-bold text-emerald-400">
-                Companies with Live Mentions
-            </h2>
+            <h4 class="text-xl font-bold text-emerald-400">
+                Companies listed in Economic Times, Pulse by zerodha and Money Control as of today
+            </h4>
             <span id="activeCount"
                 class="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-sm font-semibold">
                 Loading...
@@ -45,7 +45,7 @@ async function loadData() {
     countBadge.innerText = "Fetching Data...";
     grid.innerHTML = `
         <div class="col-span-full text-center text-slate-500 animate-pulse py-10">
-            Connecting to backend...
+            Fetching the information
         </div>
     `;
 
@@ -68,7 +68,7 @@ async function loadData() {
         console.error(err);
         grid.innerHTML = `
             <div class="col-span-full text-center text-red-400 py-10">
-                ❌ Backend not reachable. Start Flask server.
+                Sorry , we are closed 
             </div>
         `;
         countBadge.innerText = "Connection Failed";

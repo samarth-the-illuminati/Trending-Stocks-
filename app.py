@@ -2,13 +2,14 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 import requests
 import re
+import os
 
 app = Flask(__name__)
 CORS(app)
 
 @app.route("/")
 def health():
-    return "✅ Backend is running"
+    return "Internet Crawler Backend Running"
 
 @app.route("/trending")
 def trending():
@@ -25,19 +26,16 @@ def trending():
     company_count = {company: 0 for company in companies}
 
     session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0"
-    })
+    session.headers.update({"User-Agent": "Mozilla/5.0"})
 
     for url in urls:
         try:
-            response = session.get(url, timeout=10)
+            response = session.get(url, timeout=25)
             html = response.text.lower()
 
             for company in companies:
                 pattern = r"\b" + re.escape(company) + r"\b"
-                matches = re.findall(pattern, html)
-                company_count[company] += len(matches)
+                company_count[company] += len(re.findall(pattern, html))
 
         except Exception as e:
             print(f"Failed to fetch {url}: {e}")
@@ -51,4 +49,6 @@ def trending():
     return jsonify(sorted_companies)
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
+    
