@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8" />
+    <title>Trending stocks of INDIA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen p-8">
+
+<div class="max-w-5xl mx-auto">
+
+    <header class="flex justify-between items-center mb-10">
+        <h1 class="text-3xl font-bold text-cyan-400">INDIA PULSE</h1>
+        <button onclick="loadData()"
+            class="bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded-lg font-medium">
+            Refresh Feed
+        </button>
+    </header>
+
+    <main class="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl">
+
+        <div class="flex items-center justify-between mb-6 border-b border-slate-800 pb-4">
+            <h4 class="text-xl font-bold text-emerald-400">
+                Companies listed in Economic Times, Pulse by zerodha and Money Control as of today
+            </h4>
+            <span id="activeCount"
+                class="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-sm font-semibold">
+                Loading...
+            </span>
+        </div>
+
+        <div id="resultsGrid"
+            class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        </div>
+
+    </main>
+</div>
+
+<script>
+async function loadData() {
+    const grid = document.getElementById("resultsGrid");
+    const countBadge = document.getElementById("activeCount");
+
+    countBadge.innerText = "Fetching Data...";
+    grid.innerHTML = `
+        <div class="col-span-full text-center text-slate-500 animate-pulse py-10">
+            Fetching the information
+        </div>
+    `;
+
+    try {
+        const response = await fetch("/trending");
+
+        if (!response.ok) {
+            throw new Error("Backend error");
+        }
+
+        const data = await response.json();
+
+        const activeCompanies = data
+            .filter(([name, count]) => count > 0)
+            .sort((a, b) => b[1] - a[1]);
+
+        updateUI(activeCompanies, grid, countBadge);
+
+    } catch (err) {
+        console.error(err);
+        grid.innerHTML = `
+            <div class="col-span-full text-center text-red-400 py-10">
+                Sorry , we are closed 
+            </div>
+        `;
+        countBadge.innerText = "Connection Failed";
+    }
+}
+
+function updateUI(companies, grid, badge) {
+    badge.innerText = `${companies.length} Active Companies`;
+
+    if (companies.length === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full text-center text-slate-500 py-10">
+                No mentions found.
+            </div>
+        `;
+        return;
+    }
+
+    grid.innerHTML = companies.map(([name, count]) => `
+        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+            <p class="capitalize font-semibold">${name}</p>
+            <p class="text-sm text-emerald-400">${count} Mentions</p>
+        </div>
+    `).join("");
+}
+
+loadData();
+</script>
+
+</body>
+</html>
