@@ -21,8 +21,11 @@ def trending():
         "https://www.moneycontrol.com"
     ]
 
-    with open("list of top companies in india.txt", "r") as f:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+    with open(os.path.join(BASE_DIR, "companies.txt"), "r") as f:
         companies = [line.strip().lower() for line in f if line.strip()]
+
 
     company_count = {company: 0 for company in companies}
 
@@ -31,7 +34,7 @@ def trending():
 
     for url in urls:
         try:
-            response = session.get(url, timeout=25)
+            response = session.get(url, timeout=8)
             html = response.text.lower()
 
             for company in companies:
