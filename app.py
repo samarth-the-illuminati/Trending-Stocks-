@@ -15,7 +15,7 @@ def home():
 @app.route("/trending")
 def trending():
 
-    urls =["https://economictimes.indiatimes.com/markets/stocks/news","https://www.moneycontrol.com/news/business/markets/"]
+    urls =["https://economictimes.indiatimes.com/markets/stocks/news","https://www.livemint.com/market"]
 
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
