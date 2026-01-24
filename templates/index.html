@@ -11,7 +11,7 @@
 <div class="max-w-5xl mx-auto">
 
     <header class="flex justify-between items-center mb-10">
-        <h1 class="text-3xl font-bold text-cyan-400">INDIA PULSE</h1>
+        <h1 class="text-2xl font-bold text-cyan-400">Trending Indian Stocks</h1>
         <button onclick="loadData()"
             class="bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded-lg font-medium">
             Refresh Feed
@@ -21,8 +21,8 @@
     <main class="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl">
 
         <div class="flex items-center justify-between mb-6 border-b border-slate-800 pb-4">
-            <h4 class="text-xl font-bold text-emerald-400">
-                Companies listed in Economic Times, Pulse by zerodha and Money Control as of today
+            <h4 class="text-l font-bold text-emerald-400">
+                Companies listed in Economic Times And Pulse by zerodha as of now
             </h4>
             <span id="activeCount"
                 class="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-sm font-semibold">
@@ -45,7 +45,7 @@ async function loadData() {
     countBadge.innerText = "Fetching Data...";
     grid.innerHTML = `
         <div class="col-span-full text-center text-slate-500 animate-pulse py-10">
-            Fetching the information
+            Fetching the information 
         </div>
     `;
 
@@ -97,6 +97,6 @@ function updateUI(companies, grid, badge) {
 
 loadData();
 </script>
-
+<h1 class="text-2l font-semibold text-cyan-400">Project By Samarth</h1>
 </body>
 </html>
