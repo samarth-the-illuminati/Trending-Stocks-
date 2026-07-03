@@ -1,54 +1,47 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
-import requests
-import re
+import redis
 
 app = Flask(__name__)
+
+# Ensures your frontend can talk to the backend smoothly
 CORS(app)
 
+db = redis.Redis(host='localhost', port=6379, db=1)
+
 @app.route("/")
+def home():
+    """Serves the user interface dashboard natively from the server root."""
+    return send_from_directory('.', 'index.html')
+
+@app.route("/health-check")
 def health():
-    return "✅ Backend is running"
+    """API node health endpoint."""
+    return jsonify({"status": "healthy", "service": "Data Pipeline Web API Running"})
 
 @app.route("/trending")
 def trending():
+    raw_data = db.hgetall("live_stock_mentions")
+    
+    formatted_data = []
+    for company_bytes, count_bytes in raw_data.items():
+        company = company_bytes.decode('utf-8')
+        count = int(count_bytes.decode('utf-8'))
+        formatted_data.append([company, count])
+        
+    sorted_data = sorted(formatted_data, key=lambda x: x[1], reverse=True)
+    return jsonify(sorted_data)
 
-    urls = [
-        "https://economictimes.indiatimes.com",
-        "https://pulse.zerodha.com",
-        "https://www.moneycontrol.com"
-    ]
-
-    with open("list of top companies in india.txt", "r") as f:
-        companies = [line.strip().lower() for line in f if line.strip()]
-
-    company_count = {company: 0 for company in companies}
-
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": "Mozilla/5.0"
+@app.route("/trigger-scrape", methods=["POST"])
+def manual_trigger():
+    from tasks import trigger_global_ingestion
+    
+    trigger_global_ingestion.delay()
+    return jsonify({
+        "status": "success",
+        "message": "Manual data compilation pipeline queued across available Celery workers."
     })
 
-    for url in urls:
-        try:
-            response = session.get(url, timeout=10)
-            html = response.text.lower()
-
-            for company in companies:
-                pattern = r"\b" + re.escape(company) + r"\b"
-                matches = re.findall(pattern, html)
-                company_count[company] += len(matches)
-
-        except Exception as e:
-            print(f"Failed to fetch {url}: {e}")
-
-    sorted_companies = sorted(
-        company_count.items(),
-        key=lambda x: x[1],
-        reverse=True
-    )
-
-    return jsonify(sorted_companies)
-
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # Kept debug=False to maintain your exact server deployment preferences
+    app.run(debug=False, port=5000)
