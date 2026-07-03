@@ -11,9 +11,9 @@
 <div class="max-w-5xl mx-auto">
 
     <header class="flex justify-between items-center mb-10">
-        <h3 class="text-3l font-bold text-cyan-400">Trending Indian Stocks</h3>
+        <h3 class="text-3xl font-bold text-cyan-400">Trending Indian Stocks</h3>
         <button onclick="loadData()"
-            class="bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded-lg font-medium">
+            class="bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded-lg font-medium transition-colors">
             Refresh Feed
         </button>
     </header>
@@ -30,8 +30,9 @@
             </span>
         </div>
 
+        <!-- Changed grid columns to provide more room for source layouts -->
         <div id="resultsGrid"
-            class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         </div>
 
     </main>
@@ -58,9 +59,8 @@ async function loadData() {
 
         const data = await response.json();
 
-        const activeCompanies = data
-            .filter(([name, count]) => count > 0)
-            .sort((a, b) => b[1] - a[1]);
+        // Filters out items with no total mentions
+        const activeCompanies = data.filter(item => item.total > 0);
 
         updateUI(activeCompanies, grid, countBadge);
 
@@ -87,17 +87,46 @@ function updateUI(companies, grid, badge) {
         return;
     }
 
-    grid.innerHTML = companies.map(([name, count]) => `
-        <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-            <p class="capitalize font-semibold">${name}</p>
-            <p class="text-sm text-emerald-400">${count} Mentions</p>
-        </div>
-    `).join("");
+    grid.innerHTML = companies.map(item => {
+        // Build out the specific website mention breakdowns
+        let sourceBreakdownHtml = "";
+        for (const [site, count] of Object.entries(item.sources)) {
+            sourceBreakdownHtml += `
+                <div class="flex justify-between items-center bg-slate-900/50 px-3 py-1.5 rounded-md border border-slate-700/40 text-xs">
+                    <span class="text-slate-400 truncate mr-2" title="${site}">${site}</span>
+                    <span class="font-mono text-cyan-400 font-semibold bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/30">${count}</span>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 flex flex-col justify-between shadow-md hover:border-slate-600 transition-all">
+                <div>
+                    <div class="flex justify-between items-start gap-2 mb-4">
+                        <p class="capitalize font-bold text-lg text-slate-100 tracking-wide truncate">${item.company}</p>
+                        <span class="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2.5 py-1 rounded-md text-xs font-bold font-mono whitespace-nowrap">
+                            Total: ${item.total}
+                        </span>
+                    </div>
+                    
+                    <div class="space-y-2 mt-2">
+                        <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Source Breakdown</p>
+                        <div class="grid grid-cols-1 gap-2">
+                            ${sourceBreakdownHtml}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join("");
 }
 
 loadData();
-
 </script>
-<h5 class="text-xl font-bold text-cyan-900">Project by Samarth</h5>
+
+<div class="max-w-5xl mx-auto mt-6 text-right">
+    <h5 class="text-sm font-semibold text-slate-600 tracking-wider uppercase">Project by Samarth</h5>
+</div>
+
 </body>
 </html>

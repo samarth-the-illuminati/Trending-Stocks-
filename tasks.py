@@ -96,13 +96,17 @@ def process_website_pipeline(url):
             except Exception:
                 continue # Skip broken links silently and keep moving
 
-        # Stage 3: Batch load the aggregated mentions into Redis
+        # Stage 3: Batch load the aggregated mentions into Redis per website source
         found_any = any(count > 0 for count in local_counts.values())
         if found_any:
+            # Clean the URL to get just the domain name (e.g., "economictimes.indiatimes.com")
+            source_domain = urlparse(url).netloc
             pipe = db.pipeline()
             for company, count in local_counts.items():
                 if count > 0:
-                    pipe.hincrby("live_stock_mentions", company, count)
+                    # Store under a hash key unique to that company
+                    redis_key = f"company_source:{company}"
+                    pipe.hincrby(redis_key, source_domain, count)
             pipe.execute()
             
         return f"Successfully deep-scraped {processed_count} articles from seed: {url}"
@@ -120,7 +124,10 @@ def trigger_global_ingestion():
         "https://www.financialexpress.com"
     ]
     
-    db.delete("live_stock_mentions")
+    # Clean up old source-specific tracking hashes before flushing a new cycle
+    old_keys = db.keys("company_source:*")
+    if old_keys:
+        db.delete(*old_keys)
     
     print(f"📢 Ingestion scheduler triggered: Dispatching {len(TARGET_SOURCES)} workers.")
     for url in TARGET_SOURCES:

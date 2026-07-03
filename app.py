@@ -21,15 +21,42 @@ def health():
 
 @app.route("/trending")
 def trending():
-    raw_data = db.hgetall("live_stock_mentions")
+    # Find all company keys (returns list of bytes)
+    company_keys = db.keys("company_source:*")
     
-    formatted_data = []
-    for company_bytes, count_bytes in raw_data.items():
-        company = company_bytes.decode('utf-8')
-        count = int(count_bytes.decode('utf-8'))
-        formatted_data.append([company, count])
+    raw_formatted = []
+    
+    # Check if database is empty to prevent processing errors
+    if not company_keys:
+        return jsonify([])
         
-    sorted_data = sorted(formatted_data, key=lambda x: x[1], reverse=True)
+    for key in company_keys:
+        # Safely decode the main key from bytes to string before splitting
+        key_str = key.decode('utf-8')
+        company_name = key_str.split(":")[1]
+        
+        # Pull data out of the specific hash
+        source_data = db.hgetall(key)
+        
+        breakdown = {}
+        total_aggregate = 0
+        
+        for source_bytes, count_bytes in source_data.items():
+            source = source_bytes.decode('utf-8')
+            # Handles decoding directly from byte values to numbers cleanly
+            count = int(count_bytes.decode('utf-8'))
+            
+            breakdown[source] = count
+            total_aggregate += count
+            
+        raw_formatted.append({
+            "company": company_name,
+            "total": total_aggregate,
+            "sources": breakdown
+        })
+        
+    # Sort the companies by the highest total aggregate mentions
+    sorted_data = sorted(raw_formatted, key=lambda x: x['total'], reverse=True)
     return jsonify(sorted_data)
 
 @app.route("/trigger-scrape", methods=["POST"])
@@ -43,5 +70,5 @@ def manual_trigger():
     })
 
 if __name__ == "__main__":
-    # Kept debug=False to maintain your exact server deployment preferences
+    # Maintained debug=False per your preferences
     app.run(debug=False, port=5000)
