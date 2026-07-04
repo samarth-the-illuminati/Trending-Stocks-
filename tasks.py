@@ -9,25 +9,25 @@ import requests
 from urllib.parse import urljoin, urlparse
 
 # Celery uses DB 0 for scheduling messages, Flask handles data metrics on DB 1
-celery_broker_url = os.environ.get("RENDER_CELERY_BROKER", "redis://localhost:6379/0")[cite: 10]
-redis_data_url = os.environ.get("RENDER_REDIS_URL", "redis://localhost:6379/1")[cite: 10]
+celery_broker_url = os.environ.get("RENDER_CELERY_BROKER", "redis://localhost:6379/0")
+redis_data_url = os.environ.get("RENDER_REDIS_URL", "redis://localhost:6379/1")
 
-celery_app = Celery('stock_pipeline', broker=celery_broker_url)[cite: 10]
+celery_app = Celery('stock_pipeline', broker=celery_broker_url)
 db = redis.Redis.from_url(redis_data_url)
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Safari/605.1.15",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0"
-][cite: 10]
+]
 
 def load_companies():
     """Reads and sanitizes the tracking targets from the company ledger."""
-    file_path = "list of top companies in india.txt"[cite: 10]
-    if not os.path.exists(file_path):[cite: 10]
+    file_path = "list of top companies in india.txt"
+    if not os.path.exists(file_path):
         return []
     with open(file_path, "r", encoding="utf-8") as f:
-        return [line.strip().lower() for line in f if line.strip()][cite: 10]
+        return [line.strip().lower() for line in f if line.strip()]
 
 @celery_app.task
 def process_website_pipeline(url):
@@ -35,77 +35,77 @@ def process_website_pipeline(url):
     Deep ETL Pipeline Worker Task.
     Extracts links from the main page, crawls sub-pages, and loads cumulative metrics to Redis.
     """
-    companies = load_companies()[cite: 10]
-    if not companies:[cite: 10]
-        return "Pipeline aborted: 'list of top companies in india.txt' is empty or missing."[cite: 10]
+    companies = load_companies()
+    if not companies:
+        return "Pipeline aborted: 'list of top companies in india.txt' is empty or missing."
         
-    local_counts = {company: 0 for company in companies}[cite: 10]
-    session = requests.Session()[cite: 10]
+    local_counts = {company: 0 for company in companies}
+    session = requests.Session()
     
     try:
-        session.headers.update({"User-Agent": random.choice(USER_AGENTS)})[cite: 10]
-        response = session.get(url, timeout=10)[cite: 10]
-        if response.status_code != 200:[cite: 10]
-            return f"Skipped seed {url}: HTTP {response.status_code}"[cite: 10]
+        session.headers.update({"User-Agent": random.choice(USER_AGENTS)})
+        response = session.get(url, timeout=10)
+        if response.status_code != 200:
+            return f"Skipped seed {url}: HTTP {response.status_code}"
 
         # Stage 1: Parse main page and extract sub-links
-        soup = BeautifulSoup(response.text, "html.parser")[cite: 10]
-        domain = urlparse(url).netloc[cite: 10]
+        soup = BeautifulSoup(response.text, "html.parser")
+        domain = urlparse(url).netloc
         
-        sub_links = set()[cite: 10]
-        for a_tag in soup.find_all("a", href=True):[cite: 10]
-            href = a_tag["href"][cite: 10]
-            full_url = urljoin(url, href)[cite: 10]
+        sub_links = set()
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag["href"]
+            full_url = urljoin(url, href)
             
-            if urlparse(full_url).netloc == domain:[cite: 10]
-                if not any(x in full_url for x in ["/login", "/sign-up", "/privacy", "/terms"]):[cite: 10]
-                    sub_links.add(full_url)[cite: 10]
+            if urlparse(full_url).netloc == domain:
+                if not any(x in full_url for x in ["/login", "/sign-up", "/privacy", "/terms"]):
+                    sub_links.add(full_url)
         
-        links_to_crawl = list(sub_links)[:15][cite: 10]
-        print(f"🔗 Found {len(sub_links)} links on {url}. Crawling top {len(links_to_crawl)} articles...")[cite: 10]
+        links_to_crawl = list(sub_links)[:15]
+        print(f"🔗 Found {len(sub_links)} links on {url}. Crawling top {len(links_to_crawl)} articles...")
 
         # Stage 2: Deep crawl the extracted links
-        processed_count = 0[cite: 10]
-        for sub_url in links_to_crawl:[cite: 10]
+        processed_count = 0
+        for sub_url in links_to_crawl:
             try:
-                time.sleep(random.uniform(0.5, 1.5))[cite: 10]
-                sub_res = session.get(sub_url, timeout=7)[cite: 10]
-                if sub_res.status_code != 200:[cite: 10]
-                    continue[cite: 10]
+                time.sleep(random.uniform(0.5, 1.5))
+                sub_res = session.get(sub_url, timeout=7)
+                if sub_res.status_code != 200:
+                    continue
                     
-                sub_soup = BeautifulSoup(sub_res.text, "html.parser")[cite: 10]
+                sub_soup = BeautifulSoup(sub_res.text, "html.parser")
                 
-                for element in sub_soup(["script", "style", "meta", "noscript", "header", "footer"]):[cite: 10]
-                    element.extract()[cite: 10]
+                for element in sub_soup(["script", "style", "meta", "noscript", "header", "footer"]):
+                    element.extract()
                     
-                clean_text = sub_soup.get_text().lower()[cite: 10]
+                clean_text = sub_soup.get_text().lower()
 
-                for company in companies:[cite: 10]
-                    pattern = r"\b" + re.escape(company) + r"\b"[cite: 10]
-                    matches = len(re.findall(pattern, clean_text))[cite: 10]
-                    if matches > 0:[cite: 10]
-                        local_counts[company] += matches[cite: 10]
+                for company in companies:
+                    pattern = r"\b" + re.escape(company) + r"\b"
+                    matches = len(re.findall(pattern, clean_text))
+                    if matches > 0:
+                        local_counts[company] += matches
                 
-                processed_count += 1[cite: 10]
+                processed_count += 1
                 
             except Exception:
                 continue
 
         # Stage 3: Batch load the aggregated mentions into Redis
-        found_any = any(count > 0 for count in local_counts.values())[cite: 10]
-        if found_any:[cite: 10]
-            source_domain = urlparse(url).netloc[cite: 10]
-            pipe = db.pipeline()[cite: 10]
-            for company, count in local_counts.items():[cite: 10]
-                if count > 0:[cite: 10]
-                    redis_key = f"company_source:{company}"[cite: 10]
-                    pipe.hincrby(redis_key, source_domain, count)[cite: 10]
-            pipe.execute()[cite: 10]
+        found_any = any(count > 0 for count in local_counts.values())
+        if found_any:
+            source_domain = urlparse(url).netloc
+            pipe = db.pipeline()
+            for company, count in local_counts.items():
+                if count > 0:
+                    redis_key = f"company_source:{company}"
+                    pipe.hincrby(redis_key, source_domain, count)
+            pipe.execute()
             
-        return f"Successfully deep-scraped {processed_count} articles from seed: {url}"[cite: 10]
+        return f"Successfully deep-scraped {processed_count} articles from seed: {url}"
 
     except Exception as e:
-        return f"Pipeline failure processing {url}: {str(e)}"[cite: 10]
+        return f"Pipeline failure processing {url}: {str(e)}"
 
 @celery_app.task
 def trigger_global_ingestion():
@@ -115,17 +115,17 @@ def trigger_global_ingestion():
         "https://www.moneycontrol.com",
         "https://www.livemint.com",
         "https://www.financialexpress.com"
-    ][cite: 10]
+    ]
     
-    old_keys = db.keys("company_source:*")[cite: 10]
-    if old_keys:[cite: 10]
-        db.delete(*old_keys)[cite: 10]
+    old_keys = db.keys("company_source:*")
+    if old_keys:
+        db.delete(*old_keys)
     
-    print(f"📢 Ingestion scheduler triggered: Dispatching {len(TARGET_SOURCES)} workers.")[cite: 10]
-    for url in TARGET_SOURCES:[cite: 10]
-        process_website_pipeline.delay(url)[cite: 10]
+    print(f"📢 Ingestion scheduler triggered: Dispatching {len(TARGET_SOURCES)} workers.")
+    for url in TARGET_SOURCES:
+        process_website_pipeline.delay(url)
 
-# Standardized programmatic task configuration dictionary
+# Programmatic task configuration dictionary
 celery_app.conf.update(
     beat_schedule={
         'run-scrape-every-5-minutes': {
