@@ -4,3 +4,4 @@ redis
 celery
 beautifulsoup4
 requests
+gunicorn
