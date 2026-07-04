@@ -2,12 +2,11 @@ from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 import redis
 import os
+
 app = Flask(__name__)
 
 # Ensures your frontend can talk to the backend smoothly
 CORS(app)
-
-
 
 # Render automatically provisions a URL variable. If it's missing, it defaults to your local setup.
 redis_url = os.environ.get("RENDER_REDIS_URL", "redis://localhost:6379/1")
@@ -74,5 +73,6 @@ def manual_trigger():
     })
 
 if __name__ == "__main__":
-    # Maintained debug=False per your preferences
-    app.run(debug=False, port=5000)
+    # Binding to 0.0.0.0 makes it accessible across container environments if run locally
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", debug=False, port=port)

@@ -30,7 +30,7 @@
             </span>
         </div>
 
-        <!-- Changed grid columns to provide more room for source layouts -->
+        <!-- Layout grid designed with enough horizontal room to contain multi-source badges -->
         <div id="resultsGrid"
             class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         </div>
@@ -51,6 +51,7 @@ async function loadData() {
     `;
 
     try {
+        // Corrected to use a relative endpoint so it auto-resolves your production domain name
         const response = await fetch("/trending");
 
         if (!response.ok) {
@@ -68,7 +69,7 @@ async function loadData() {
         console.error(err);
         grid.innerHTML = `
             <div class="col-span-full text-center text-red-400 py-10">
-                ❌ Backend not reachable. Start Flask server.
+                ❌ Backend not reachable. Ensure the Flask server is running and healthy.
             </div>
         `;
         countBadge.innerText = "Connection Failed";
@@ -88,7 +89,7 @@ function updateUI(companies, grid, badge) {
     }
 
     grid.innerHTML = companies.map(item => {
-        // Build out the specific website mention breakdowns
+        // Build out the specific website mention breakdowns dynamically
         let sourceBreakdownHtml = "";
         for (const [site, count] of Object.entries(item.sources)) {
             sourceBreakdownHtml += `
@@ -121,6 +122,7 @@ function updateUI(companies, grid, badge) {
     }).join("");
 }
 
+// Initial pull on window load
 loadData();
 </script>
 
