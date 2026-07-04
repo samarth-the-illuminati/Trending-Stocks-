@@ -1,0 +1,8 @@
+# Celery local runtime database logs
+celerybeat-schedule*
+
+# Python virtual environment folder
+venv/
+venv_wsl/
+__pycache__/
+*.pyc

@@ -5,130 +5,74 @@
     <title>Trending Indian Stocks</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-
 <body class="bg-slate-950 text-slate-100 min-h-screen p-8">
-
 <div class="max-w-5xl mx-auto">
-
     <header class="flex justify-between items-center mb-10">
         <h3 class="text-3xl font-bold text-cyan-400">Trending Indian Stocks</h3>
-        <button onclick="loadData()"
-            class="bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded-lg font-medium transition-colors">
+        <button onclick="loadData()" class="bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded-lg font-medium transition-colors">
             Refresh Feed
         </button>
     </header>
-
     <main class="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl">
-
         <div class="flex items-center justify-between mb-6 border-b border-slate-800 pb-4">
-            <h2 class="text-xl font-bold text-emerald-400">
-                Companies with Live Mentions
-            </h2>
-            <span id="activeCount"
-                class="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-sm font-semibold">
-                Loading...
-            </span>
+            <h2 class="text-xl font-bold text-emerald-400">Companies with Live Mentions</h2>
+            <span id="activeCount" class="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-sm font-semibold">Loading...</span>
         </div>
-
-        <!-- Layout grid designed with enough horizontal room to contain multi-source badges -->
-        <div id="resultsGrid"
-            class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        </div>
-
+        <div id="resultsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
     </main>
 </div>
-
 <script>
 async function loadData() {
     const grid = document.getElementById("resultsGrid");
     const countBadge = document.getElementById("activeCount");
-
     countBadge.innerText = "Fetching Data...";
-    grid.innerHTML = `
-        <div class="col-span-full text-center text-slate-500 animate-pulse py-10">
-            Connecting to backend...
-        </div>
-    `;
-
+    grid.innerHTML = `<div class="col-span-full text-center text-slate-500 animate-pulse py-10">Connecting to backend...</div>`;
     try {
-        // Corrected to use a relative endpoint so it auto-resolves your production domain name
         const response = await fetch("/trending");
-
-        if (!response.ok) {
-            throw new Error("Backend error");
-        }
-
+        if (!response.ok) throw new Error("Backend error");
         const data = await response.json();
-
-        // Filters out items with no total mentions
         const activeCompanies = data.filter(item => item.total > 0);
-
         updateUI(activeCompanies, grid, countBadge);
-
     } catch (err) {
         console.error(err);
-        grid.innerHTML = `
-            <div class="col-span-full text-center text-red-400 py-10">
-                ❌ Backend not reachable. Ensure the Flask server is running and healthy.
-            </div>
-        `;
+        grid.innerHTML = `<div class="col-span-full text-center text-red-400 py-10">❌ Backend not reachable. Ensure server is running.</div>`;
         countBadge.innerText = "Connection Failed";
     }
 }
-
 function updateUI(companies, grid, badge) {
     badge.innerText = `${companies.length} Active Companies`;
-
     if (companies.length === 0) {
-        grid.innerHTML = `
-            <div class="col-span-full text-center text-slate-500 py-10">
-                No mentions found.
-            </div>
-        `;
+        grid.innerHTML = `<div class="col-span-full text-center text-slate-500 py-10">No mentions found right now. Trigger a scrape!</div>`;
         return;
     }
-
     grid.innerHTML = companies.map(item => {
-        // Build out the specific website mention breakdowns dynamically
         let sourceBreakdownHtml = "";
         for (const [site, count] of Object.entries(item.sources)) {
             sourceBreakdownHtml += `
                 <div class="flex justify-between items-center bg-slate-900/50 px-3 py-1.5 rounded-md border border-slate-700/40 text-xs">
                     <span class="text-slate-400 truncate mr-2" title="${site}">${site}</span>
                     <span class="font-mono text-cyan-400 font-semibold bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/30">${count}</span>
-                </div>
-            `;
+                </div>`;
         }
-
         return `
             <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 flex flex-col justify-between shadow-md hover:border-slate-600 transition-all">
                 <div>
                     <div class="flex justify-between items-start gap-2 mb-4">
                         <p class="capitalize font-bold text-lg text-slate-100 tracking-wide truncate">${item.company}</p>
-                        <span class="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2.5 py-1 rounded-md text-xs font-bold font-mono whitespace-nowrap">
-                            Total: ${item.total}
-                        </span>
+                        <span class="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2.5 py-1 rounded-md text-xs font-bold font-mono whitespace-nowrap">Total: ${item.total}</span>
                     </div>
-                    
                     <div class="space-y-2 mt-2">
                         <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Source Breakdown</p>
-                        <div class="grid grid-cols-1 gap-2">
-                            ${sourceBreakdownHtml}
-                        </div>
+                        <div class="grid grid-cols-1 gap-2">${sourceBreakdownHtml}</div>
                     </div>
                 </div>
-            </div>
-        `;
+            </div>`;
     }).join("");
 }
-
-// Initial pull on window load
 loadData();
 </script>
-
 <div class="max-w-5xl mx-auto mt-6 text-right">
     <h5 class="text-sm font-semibold text-slate-600 tracking-wider uppercase">Project by Samarth</h5>
 </div>
-
 </body>
 </html>

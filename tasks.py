@@ -8,7 +8,6 @@ from bs4 import BeautifulSoup
 import requests
 from urllib.parse import urljoin, urlparse
 
-# Celery uses DB 0 for scheduling messages, Flask handles data metrics on DB 1
 celery_broker_url = os.environ.get("RENDER_CELERY_BROKER", "redis://localhost:6379/0")
 redis_data_url = os.environ.get("RENDER_REDIS_URL", "redis://localhost:6379/1")
 
@@ -22,7 +21,6 @@ USER_AGENTS = [
 ]
 
 def load_companies():
-    """Reads and sanitizes the tracking targets from the company ledger."""
     file_path = "list of top companies in india.txt"
     if not os.path.exists(file_path):
         return []
@@ -31,13 +29,9 @@ def load_companies():
 
 @celery_app.task
 def process_website_pipeline(url):
-    """
-    Deep ETL Pipeline Worker Task.
-    Extracts links from the main page, crawls sub-pages, and loads cumulative metrics to Redis.
-    """
     companies = load_companies()
     if not companies:
-        return "Pipeline aborted: 'list of top companies in india.txt' is empty or missing."
+        return "Pipeline aborted: Tracking list missing."
         
     local_counts = {company: 0 for company in companies}
     session = requests.Session()
@@ -48,7 +42,6 @@ def process_website_pipeline(url):
         if response.status_code != 200:
             return f"Skipped seed {url}: HTTP {response.status_code}"
 
-        # Stage 1: Parse main page and extract sub-links
         soup = BeautifulSoup(response.text, "html.parser")
         domain = urlparse(url).netloc
         
@@ -62,9 +55,7 @@ def process_website_pipeline(url):
                     sub_links.add(full_url)
         
         links_to_crawl = list(sub_links)[:15]
-        print(f"🔗 Found {len(sub_links)} links on {url}. Crawling top {len(links_to_crawl)} articles...")
 
-        # Stage 2: Deep crawl the extracted links
         processed_count = 0
         for sub_url in links_to_crawl:
             try:
@@ -74,7 +65,6 @@ def process_website_pipeline(url):
                     continue
                     
                 sub_soup = BeautifulSoup(sub_res.text, "html.parser")
-                
                 for element in sub_soup(["script", "style", "meta", "noscript", "header", "footer"]):
                     element.extract()
                     
@@ -91,7 +81,6 @@ def process_website_pipeline(url):
             except Exception:
                 continue
 
-        # Stage 3: Batch load the aggregated mentions into Redis
         found_any = any(count > 0 for count in local_counts.values())
         if found_any:
             source_domain = urlparse(url).netloc
@@ -121,11 +110,9 @@ def trigger_global_ingestion():
     if old_keys:
         db.delete(*old_keys)
     
-    print(f"📢 Ingestion scheduler triggered: Dispatching {len(TARGET_SOURCES)} workers.")
     for url in TARGET_SOURCES:
         process_website_pipeline.delay(url)
 
-# Programmatic task configuration dictionary
 celery_app.conf.update(
     beat_schedule={
         'run-scrape-every-5-minutes': {
