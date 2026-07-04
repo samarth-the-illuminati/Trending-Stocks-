@@ -2,10 +2,15 @@ from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 import redis
 import os
+import threading
+
+# Import the scraping function directly from tasks
+from tasks import trigger_global_ingestion_direct
 
 app = Flask(__name__)
 CORS(app)
 
+# Fallback to local configuration, but Render will override via environment variables
 redis_url = os.environ.get("RENDER_REDIS_URL", "redis://localhost:6379/1")
 db = redis.Redis.from_url(redis_url)
 
@@ -48,13 +53,13 @@ def trending():
     sorted_data = sorted(raw_formatted, key=lambda x: x['total'], reverse=True)
     return jsonify(sorted_data)
 
-@app.route("/trigger-scrape", methods=["POST"])
+@app.route("/trigger-scrape", methods=["POST", "GET"])
 def manual_trigger():
-    from tasks import trigger_global_ingestion
-    trigger_global_ingestion.delay()
+    # Spin up an isolated background thread inside this service container to avoid HTTP timeouts
+    threading.Thread(target=trigger_global_ingestion_direct).start()
     return jsonify({
         "status": "success",
-        "message": "Manual data compilation pipeline queued."
+        "message": "Scraping pipeline started safely in the background!"
     })
 
 if __name__ == "__main__":

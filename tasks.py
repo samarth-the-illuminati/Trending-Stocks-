@@ -3,15 +3,11 @@ import re
 import time
 import random
 import redis
-from celery import Celery
 from bs4 import BeautifulSoup
 import requests
 from urllib.parse import urljoin, urlparse
 
-celery_broker_url = os.environ.get("RENDER_CELERY_BROKER", "redis://localhost:6379/0")
 redis_data_url = os.environ.get("RENDER_REDIS_URL", "redis://localhost:6379/1")
-
-celery_app = Celery('stock_pipeline', broker=celery_broker_url)
 db = redis.Redis.from_url(redis_data_url)
 
 USER_AGENTS = [
@@ -27,11 +23,11 @@ def load_companies():
     with open(file_path, "r", encoding="utf-8") as f:
         return [line.strip().lower() for line in f if line.strip()]
 
-@celery_app.task
-def process_website_pipeline(url):
+def process_website_pipeline_direct(url):
     companies = load_companies()
     if not companies:
-        return "Pipeline aborted: Tracking list missing."
+        print("Pipeline tracking target checklist file missing.")
+        return
         
     local_counts = {company: 0 for company in companies}
     session = requests.Session()
@@ -40,7 +36,7 @@ def process_website_pipeline(url):
         session.headers.update({"User-Agent": random.choice(USER_AGENTS)})
         response = session.get(url, timeout=10)
         if response.status_code != 200:
-            return f"Skipped seed {url}: HTTP {response.status_code}"
+            return
 
         soup = BeautifulSoup(response.text, "html.parser")
         domain = urlparse(url).netloc
@@ -49,18 +45,17 @@ def process_website_pipeline(url):
         for a_tag in soup.find_all("a", href=True):
             href = a_tag["href"]
             full_url = urljoin(url, href)
-            
             if urlparse(full_url).netloc == domain:
                 if not any(x in full_url for x in ["/login", "/sign-up", "/privacy", "/terms"]):
                     sub_links.add(full_url)
         
-        links_to_crawl = list(sub_links)[:15]
+        # Kept to 10 links to run efficiently inside Render's free RAM limits
+        links_to_crawl = list(sub_links)[:10]
 
-        processed_count = 0
         for sub_url in links_to_crawl:
             try:
-                time.sleep(random.uniform(0.5, 1.5))
-                sub_res = session.get(sub_url, timeout=7)
+                time.sleep(random.uniform(0.5, 1.2))
+                sub_res = session.get(sub_url, timeout=5)
                 if sub_res.status_code != 200:
                     continue
                     
@@ -75,9 +70,6 @@ def process_website_pipeline(url):
                     matches = len(re.findall(pattern, clean_text))
                     if matches > 0:
                         local_counts[company] += matches
-                
-                processed_count += 1
-                
             except Exception:
                 continue
 
@@ -90,35 +82,23 @@ def process_website_pipeline(url):
                     redis_key = f"company_source:{company}"
                     pipe.hincrby(redis_key, source_domain, count)
             pipe.execute()
-            
-        return f"Successfully deep-scraped {processed_count} articles from seed: {url}"
 
     except Exception as e:
-        return f"Pipeline failure processing {url}: {str(e)}"
+        print(f"Error crawling {url}: {e}")
 
-@celery_app.task
-def trigger_global_ingestion():
+def trigger_global_ingestion_direct():
+    print("Background thread active: Beginning target text scraping pipeline...")
     TARGET_SOURCES = [
         "https://economictimes.indiatimes.com",
         "https://pulse.zerodha.com",
-        "https://www.moneycontrol.com",
-        "https://www.livemint.com",
-        "https://www.financialexpress.com"
+        "https://www.moneycontrol.com"
     ]
     
+    # Flush older cached tracking logs before refreshing metrics
     old_keys = db.keys("company_source:*")
     if old_keys:
         db.delete(*old_keys)
     
     for url in TARGET_SOURCES:
-        process_website_pipeline.delay(url)
-
-celery_app.conf.update(
-    beat_schedule={
-        'run-scrape-every-5-minutes': {
-            'task': 'tasks.trigger_global_ingestion',
-            'schedule': 300.0, 
-        },
-    },
-    timezone='UTC'
-)
+        process_website_pipeline_direct(url)
+    print("Background thread active: Scraping extraction pipeline complete.")

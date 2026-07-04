@@ -2,18 +2,25 @@
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Trending Indian Stocks</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen p-8">
 <div class="max-w-5xl mx-auto">
-    <header class="flex justify-between items-center mb-10">
-        <h3 class="text-3xl font-bold text-cyan-400">Trending Indian Stocks</h3>
-        <button onclick="loadData()" class="bg-emerald-600 hover:bg-emerald-500 px-6 py-2 rounded-lg font-medium transition-colors">
-            Refresh Feed
-        </button>
+    <header class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-10">
+        <h3 class="text-3xl font-bold text-cyan-400 tracking-wide">Trending Indian Stocks</h3>
+        <div class="flex gap-3">
+            <button onclick="triggerScrape()" class="bg-amber-600 hover:bg-amber-500 active:bg-amber-700 px-5 py-2.5 rounded-xl font-semibold shadow-md transition-all">
+                ⚡ Trigger Scrape
+            </button>
+            <button onclick="loadData()" class="bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 px-5 py-2.5 rounded-xl font-semibold shadow-md transition-all">
+                Refresh Feed
+            </button>
+        </div>
     </header>
-    <main class="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl">
+    
+    <main class="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-2xl shadow-2xl">
         <div class="flex items-center justify-between mb-6 border-b border-slate-800 pb-4">
             <h2 class="text-xl font-bold text-emerald-400">Companies with Live Mentions</h2>
             <span id="activeCount" class="bg-slate-800 text-slate-400 px-3 py-1 rounded-full text-sm font-semibold">Loading...</span>
@@ -21,58 +28,75 @@
         <div id="resultsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
     </main>
 </div>
+
 <script>
+async function triggerScrape() {
+    alert("Scraper pipeline spun up in the background! Allow 1-2 minutes for the system to process the target platforms, then click 'Refresh Feed'.");
+    try {
+        await fetch("/trigger-scrape");
+    } catch (err) {
+        console.error("Trigger endpoint failed", err);
+    }
+}
+
 async function loadData() {
     const grid = document.getElementById("resultsGrid");
     const countBadge = document.getElementById("activeCount");
-    countBadge.innerText = "Fetching Data...";
-    grid.innerHTML = `<div class="col-span-full text-center text-slate-500 animate-pulse py-10">Connecting to backend...</div>`;
+    countBadge.innerText = "Querying DB...";
+    grid.innerHTML = `<div class="col-span-full text-center text-slate-500 animate-pulse py-12 text-lg">Reading current metrics from Redis database...</div>`;
+    
     try {
         const response = await fetch("/trending");
-        if (!response.ok) throw new Error("Backend error");
+        if (!response.ok) throw new Error("Data retrieval error");
         const data = await response.json();
         const activeCompanies = data.filter(item => item.total > 0);
         updateUI(activeCompanies, grid, countBadge);
     } catch (err) {
         console.error(err);
-        grid.innerHTML = `<div class="col-span-full text-center text-red-400 py-10">❌ Backend not reachable. Ensure server is running.</div>`;
-        countBadge.innerText = "Connection Failed";
+        grid.innerHTML = `<div class="col-span-full text-center text-red-400 py-12 font-medium">❌ Remote connection failed. Check your Render configuration variables.</div>`;
+        countBadge.innerText = "Error";
     }
 }
+
 function updateUI(companies, grid, badge) {
     badge.innerText = `${companies.length} Active Companies`;
     if (companies.length === 0) {
-        grid.innerHTML = `<div class="col-span-full text-center text-slate-500 py-10">No mentions found right now. Trigger a scrape!</div>`;
+        grid.innerHTML = `<div class="col-span-full text-center text-slate-400 py-14 border border-dashed border-slate-800 rounded-xl">No stock metrics tracked yet. Click 'Trigger Scrape' to feed the pipeline!</div>`;
         return;
     }
+    
     grid.innerHTML = companies.map(item => {
         let sourceBreakdownHtml = "";
         for (const [site, count] of Object.entries(item.sources)) {
             sourceBreakdownHtml += `
-                <div class="flex justify-between items-center bg-slate-900/50 px-3 py-1.5 rounded-md border border-slate-700/40 text-xs">
+                <div class="flex justify-between items-center bg-slate-950/40 px-3 py-2 rounded-lg border border-slate-800 text-xs">
                     <span class="text-slate-400 truncate mr-2" title="${site}">${site}</span>
-                    <span class="font-mono text-cyan-400 font-semibold bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/30">${count}</span>
+                    <span class="font-mono text-cyan-400 font-bold bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-900/40">${count}</span>
                 </div>`;
         }
+        
         return `
-            <div class="bg-slate-800 p-5 rounded-xl border border-slate-700 flex flex-col justify-between shadow-md hover:border-slate-600 transition-all">
+            <div class="bg-slate-800/60 p-5 rounded-xl border border-slate-700/60 flex flex-col justify-between shadow-lg hover:border-slate-500 transition-all duration-200">
                 <div>
                     <div class="flex justify-between items-start gap-2 mb-4">
-                        <p class="capitalize font-bold text-lg text-slate-100 tracking-wide truncate">${item.company}</p>
-                        <span class="bg-emerald-950 text-emerald-400 border border-emerald-800 px-2.5 py-1 rounded-md text-xs font-bold font-mono whitespace-nowrap">Total: ${item.total}</span>
+                        <p class="capitalize font-extrabold text-lg text-slate-100 tracking-wide truncate">${item.company}</p>
+                        <span class="bg-emerald-950 text-emerald-400 border border-emerald-800/60 px-2.5 py-1 rounded-md text-xs font-bold font-mono">Total: ${item.total}</span>
                     </div>
-                    <div class="space-y-2 mt-2">
-                        <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Source Breakdown</p>
-                        <div class="grid grid-cols-1 gap-2">${sourceBreakdownHtml}</div>
+                    <div class="space-y-2 mt-4">
+                        <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Source Domain Analysis</p>
+                        <div class="grid grid-cols-1 gap-1.5">${sourceBreakdownHtml}</div>
                     </div>
                 </div>
             </div>`;
     }).join("");
 }
+
+// Initial fetch when document loads
 loadData();
 </script>
-<div class="max-w-5xl mx-auto mt-6 text-right">
-    <h5 class="text-sm font-semibold text-slate-600 tracking-wider uppercase">Project by Samarth</h5>
-</div>
+
+<footer class="max-w-5xl mx-auto mt-8 mb-12 text-center sm:text-right">
+    <h5 class="text-xs font-bold text-slate-700 tracking-widest uppercase">Project by Samarth</h5>
+</footer>
 </body>
 </html>
