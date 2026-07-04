@@ -14,6 +14,9 @@ CORS(app)
 redis_url = os.environ.get("RENDER_REDIS_URL", "redis://localhost:6379/1")
 db = redis.Redis.from_url(redis_url)
 
+# Global flag to track if a background scraping process is currently running
+scraping_active = False
+
 @app.route("/")
 def home():
     return send_from_directory('.', 'index.html')
@@ -55,8 +58,26 @@ def trending():
 
 @app.route("/trigger-scrape", methods=["POST", "GET"])
 def manual_trigger():
-    # Spin up an isolated background thread inside this service container to avoid HTTP timeouts
-    threading.Thread(target=trigger_global_ingestion_direct).start()
+    global scraping_active
+    
+    # Safety Lock: If a thread is already executing, block concurrent requests to prevent RAM crashes
+    if scraping_active:
+        return jsonify({
+            "status": "busy",
+            "message": "Pipeline is already actively scraping. Please wait a minute before triggering again!"
+        }), 429
+        
+    def run_wrapped_pipeline():
+        global scraping_active
+        try:
+            scraping_active = True
+            trigger_global_ingestion_direct()
+        finally:
+            # Ensure the flag resets back to False even if the scraping execution hits an unexpected error
+            scraping_active = False 
+
+    # Spin up an isolated background thread inside this service container
+    threading.Thread(target=run_wrapped_pipeline).start()
     return jsonify({
         "status": "success",
         "message": "Scraping pipeline started safely in the background!"
