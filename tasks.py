@@ -8,9 +8,14 @@ from bs4 import BeautifulSoup
 import requests
 from urllib.parse import urljoin, urlparse
 
-celery_app = Celery('stock_pipeline', broker='redis://localhost:6379/0')
+import os
 
-db = redis.Redis(host='localhost', port=6379, db=1)
+# Celery uses DB 0 for scheduling messages, Flask handles data metrics on DB 1
+celery_broker_url = os.environ.get("RENDER_CELERY_BROKER", "redis://localhost:6379/0")
+redis_data_url = os.environ.get("RENDER_REDIS_URL", "redis://localhost:6379/1")
+
+celery_app = Celery('stock_pipeline', broker=celery_broker_url)
+db = redis.Redis.from_url(redis_data_url)
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",

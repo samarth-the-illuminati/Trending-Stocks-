@@ -1,13 +1,17 @@
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 import redis
-
+import os
 app = Flask(__name__)
 
 # Ensures your frontend can talk to the backend smoothly
 CORS(app)
 
-db = redis.Redis(host='localhost', port=6379, db=1)
+
+
+# Render automatically provisions a URL variable. If it's missing, it defaults to your local setup.
+redis_url = os.environ.get("RENDER_REDIS_URL", "redis://localhost:6379/1")
+db = redis.Redis.from_url(redis_url)
 
 @app.route("/")
 def home():

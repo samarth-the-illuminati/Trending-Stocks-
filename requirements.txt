@@ -1,0 +1,6 @@
+flask
+flask-cors
+redis
+celery
+beautifulsoup4
+requests
